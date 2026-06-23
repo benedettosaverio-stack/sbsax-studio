@@ -169,17 +169,37 @@ const LOGO_FULL_COLOR = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwgAAAHvC
 // ============================================================
 const DB_KEY = 'sbsax_studio_db_v1';
 
+function defaultProfile(){
+  return {
+    nom: 'Saverio Benedetto',
+    activite: 'DJ / Saxophoniste \u2014 SBSAX',
+    email: 'benedetto.saverio@outlook.fr',
+    tel: '06 52 28 25 31',
+    adresse: 'Marly, 59770',
+    siret: '884661125',
+    tva: 'TVA non applicable \u2014 art. 293 B du CGI',
+    acompte: '30',
+    km: '30',
+    logo: ''
+  };
+}
+
 function loadDB(){
   try{
     const raw = localStorage.getItem(DB_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(!parsed.profile) parsed.profile = defaultProfile();
+      return parsed;
+    }
   }catch(e){}
-  return { profile:null, clients:[], rates:[], documents:[], nextNum:1 };
+  return { profile: defaultProfile(), clients:[], rates:[], documents:[], nextNum:1 };
 }
 function saveDB(){
   localStorage.setItem(DB_KEY, JSON.stringify(DB));
 }
 let DB = loadDB();
+saveDB();
 
 function uid(){
   return Date.now().toString(36)+Math.random().toString(36).slice(2,8);
@@ -364,8 +384,7 @@ let onboardData = {};
 function viewOnboard(){
   const steps = [
     () => `
-      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX">
-      <div class="onboard-title">Bienvenue dans<br>SBSAX Studio</div>
+      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX" style="margin-bottom:18px;">
       <div class="onboard-sub">Gère tes devis et factures DJ / saxophone en quelques secondes.</div>
       <div class="field">
         <label>Ton nom (ou nom de scène)</label>
@@ -378,7 +397,7 @@ function viewOnboard(){
       <button class="btn btn-accent" id="ob-next">Continuer</button>
     `,
     () => `
-      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX">
+      <img src="${LOGO_SYMBOL}" style="height:36px; display:block; margin:0 auto 14px;" alt="SBSAX">
       <div class="onboard-title">Tes coordonn\u00e9es</div>
       <div class="onboard-sub">Elles appara\u00eetront sur tes devis et factures.</div>
       <div class="field"><label>Email</label><input type="email" id="ob-email" placeholder="benedetto.saverio@outlook.fr" value="${esc(onboardData.email||'')}"></div>
@@ -390,7 +409,7 @@ function viewOnboard(){
       </div>
     `,
     () => `
-      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX">
+      <img src="${LOGO_SYMBOL}" style="height:36px; display:block; margin:0 auto 14px;" alt="SBSAX">
       <div class="onboard-title">Infos l\u00e9gales</div>
       <div class="onboard-sub">Obligatoires sur tes factures (micro-entreprise).</div>
       <div class="field"><label>SIREN / SIRET</label><input type="text" id="ob-siret" placeholder="884661125" value="${esc(onboardData.siret||'')}"></div>
