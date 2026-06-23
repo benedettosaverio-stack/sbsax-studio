@@ -364,8 +364,7 @@ let onboardData = {};
 function viewOnboard(){
   const steps = [
     () => `
-      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX">
-      <div class="onboard-title">Bienvenue dans<br>SBSAX Studio</div>
+      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX" style="margin-bottom:18px;">
       <div class="onboard-sub">Gère tes devis et factures DJ / saxophone en quelques secondes.</div>
       <div class="field">
         <label>Ton nom (ou nom de scène)</label>
@@ -378,7 +377,7 @@ function viewOnboard(){
       <button class="btn btn-accent" id="ob-next">Continuer</button>
     `,
     () => `
-      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX">
+      <img src="${LOGO_SYMBOL}" style="height:36px; display:block; margin:0 auto 14px;" alt="SBSAX">
       <div class="onboard-title">Tes coordonn\u00e9es</div>
       <div class="onboard-sub">Elles appara\u00eetront sur tes devis et factures.</div>
       <div class="field"><label>Email</label><input type="email" id="ob-email" placeholder="benedetto.saverio@outlook.fr" value="${esc(onboardData.email||'')}"></div>
@@ -390,7 +389,7 @@ function viewOnboard(){
       </div>
     `,
     () => `
-      <img src="${LOGO_FULL_WHITE}" class="onboard-logo-full" alt="SBSAX">
+      <img src="${LOGO_SYMBOL}" style="height:36px; display:block; margin:0 auto 14px;" alt="SBSAX">
       <div class="onboard-title">Infos l\u00e9gales</div>
       <div class="onboard-sub">Obligatoires sur tes factures (micro-entreprise).</div>
       <div class="field"><label>SIREN / SIRET</label><input type="text" id="ob-siret" placeholder="884661125" value="${esc(onboardData.siret||'')}"></div>
