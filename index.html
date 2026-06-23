@@ -184,16 +184,40 @@ function defaultProfile(){
   };
 }
 
+function defaultRates(){
+  return [
+    // --- Particuliers : soirées privées & anniversaires ---
+    { id: uid(), label: 'DJ set \u2014 house / tech house (particulier)', price: 450, unit: 'forfait 2h', desc: 'Soir\u00e9e priv\u00e9e, anniversaire. Sonorisation et mat\u00e9riel complet inclus.', category: 'particuliers' },
+    { id: uid(), label: 'DJ set \u2014 soir\u00e9e compl\u00e8te (particulier)', price: 850, unit: 'forfait 4h', desc: 'Soir\u00e9e priv\u00e9e, anniversaire. Sonorisation et mat\u00e9riel complet inclus.', category: 'particuliers' },
+    { id: uid(), label: 'Saxophone live en compl\u00e9ment de votre DJ (particulier)', price: 350, unit: 'forfait 1h \u2014 3 passages de 10 min', desc: 'Intervention sax en featuring sur la r\u00e9gie d\u2019un autre DJ.', category: 'particuliers' },
+    { id: uid(), label: 'DJ + Saxophone live combin\u00e9 \u2014 Formule signature (particulier)', price: 650, unit: 'forfait 2h', desc: 'Formule signature SBSAX. Sonorisation et mat\u00e9riel complet inclus.', category: 'particuliers' },
+    // --- Particuliers : mariages ---
+    { id: uid(), label: 'Saxophone live \u2014 cocktail / soir\u00e9e (mariage)', price: 599, unit: 'forfait 2h', desc: 'Intervention au saxophone seul, sans mix DJ.', category: 'particuliers' },
+    { id: uid(), label: 'Heure suppl\u00e9mentaire mariage (ou commenc\u00e9e)', price: 100, unit: 'heure', desc: 'Au-del\u00e0 du forfait 2h de saxophone mariage.', category: 'particuliers' },
+    // --- Pro / Établissements ---
+    { id: uid(), label: 'DJ set \u2014 house / tech house (tarif partenariat)', price: 250, unit: 'forfait 2h', desc: 'Bar, club, restaurant, entreprise. Lieu d\u00e9j\u00e0 \u00e9quip\u00e9 en sonorisation.', category: 'pro' },
+    { id: uid(), label: 'DJ set \u2014 soir\u00e9e compl\u00e8te (tarif partenariat)', price: 450, unit: 'forfait 4h', desc: 'Bar, club, restaurant, entreprise. Lieu d\u00e9j\u00e0 \u00e9quip\u00e9 en sonorisation.', category: 'pro' },
+    { id: uid(), label: 'Saxophone live en compl\u00e9ment d\u2019un DJ d\u00e9j\u00e0 pr\u00e9sent (tarif partenariat)', price: 250, unit: 'forfait 2h \u2014 5 passages', desc: 'Sax + micro sans fil uniquement, pas de sonorisation apport\u00e9e.', category: 'pro' },
+    { id: uid(), label: 'DJ + Saxophone live combin\u00e9 \u2014 Formule signature (tarif partenariat)', price: 400, unit: 'forfait 2h', desc: 'Formule signature SBSAX. Sax + micro + platines, pas de sonorisation apport\u00e9e.', category: 'pro' },
+    // --- Options communes ---
+    { id: uid(), label: 'Heure suppl\u00e9mentaire au-del\u00e0 du forfait', price: 80, unit: 'heure', desc: 'Hors mariage (voir tarif d\u00e9di\u00e9 mariage : 100\u20ac/h).', category: 'commun' },
+    { id: uid(), label: '\u00c9clairage additionnel (jeux de lumi\u00e8re)', price: 120, unit: 'forfait', desc: 'R\u00e9serv\u00e9 aux particuliers (mat\u00e9riel personnel apport\u00e9).', category: 'particuliers' },
+    { id: uid(), label: 'Sonorisation suppl\u00e9mentaire (2e zone)', price: 150, unit: 'forfait', desc: 'R\u00e9serv\u00e9 aux particuliers (mat\u00e9riel personnel apport\u00e9).', category: 'particuliers' },
+    { id: uid(), label: 'Micro sans fil suppl\u00e9mentaire', price: 40, unit: 'forfait', desc: 'Discours, animations, annonces.', category: 'commun' },
+  ];
+}
+
 function loadDB(){
   try{
     const raw = localStorage.getItem(DB_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
       if(!parsed.profile) parsed.profile = defaultProfile();
+      if(!parsed.rates || parsed.rates.length===0) parsed.rates = defaultRates();
       return parsed;
     }
   }catch(e){}
-  return { profile: defaultProfile(), clients:[], rates:[], documents:[], nextNum:1 };
+  return { profile: defaultProfile(), clients:[], rates: defaultRates(), documents:[], nextNum:1 };
 }
 function saveDB(){
   localStorage.setItem(DB_KEY, JSON.stringify(DB));
@@ -649,25 +673,52 @@ function bindClientForm(params){
 // ============================================================
 // RATES (tarifs)
 // ============================================================
+let ratesFilter = 'all'; // all | particuliers | pro | commun
+
+const CATEGORY_LABELS = {
+  particuliers: 'Particuliers',
+  pro: 'Pro & \u00e9tablissements',
+  commun: 'Options communes'
+};
+
 function viewRates(){
-  const rates = [...DB.rates].sort((a,b)=>a.label.localeCompare(b.label));
+  let rates = [...DB.rates];
+  if(ratesFilter !== 'all') rates = rates.filter(r => (r.category||'commun') === ratesFilter);
+
+  const groups = {};
+  rates.forEach(r=>{
+    const cat = r.category || 'commun';
+    if(!groups[cat]) groups[cat] = [];
+    groups[cat].push(r);
+  });
+  const order = ['particuliers','pro','commun'];
+
   return `
     ${topBar('Tarifs')}
     <div class="content">
+      <div class="row" style="margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+        <button class="btn ${ratesFilter==='all'?'btn-outline-accent':'btn-ghost'} btn-sm" data-rfilter="all" style="flex:1; min-width:70px;">Tous</button>
+        <button class="btn ${ratesFilter==='particuliers'?'btn-outline-accent':'btn-ghost'} btn-sm" data-rfilter="particuliers" style="flex:1; min-width:90px;">Particuliers</button>
+        <button class="btn ${ratesFilter==='pro'?'btn-outline-accent':'btn-ghost'} btn-sm" data-rfilter="pro" style="flex:1; min-width:70px;">Pro</button>
+        <button class="btn ${ratesFilter==='commun'?'btn-outline-accent':'btn-ghost'} btn-sm" data-rfilter="commun" style="flex:1; min-width:90px;">Communes</button>
+      </div>
       ${rates.length===0 ? `
         <div class="empty">
           <div class="emoji">${ICONS.music}</div>
           <p>Aucun tarif encore.<br>Ajoute tes formules (DJ, sax, combin\u00e9...).</p>
         </div>
-      ` : `<div class="card">${rates.map(r=>`
-        <div class="list-item" data-rate-id="${r.id}" style="cursor:pointer;">
-          <div class="list-main">
-            <p class="list-title">${esc(r.label)}</p>
-            <p class="list-sub">${esc(r.unit||'forfait')}</p>
+      ` : order.filter(cat=>groups[cat]&&groups[cat].length).map(cat=>`
+        <div class="section-title">${CATEGORY_LABELS[cat]}</div>
+        <div class="card">${groups[cat].sort((a,b)=>a.label.localeCompare(b.label)).map(r=>`
+          <div class="list-item" data-rate-id="${r.id}" style="cursor:pointer;">
+            <div class="list-main">
+              <p class="list-title" style="white-space:normal;">${esc(r.label)}</p>
+              <p class="list-sub">${esc(r.unit||'forfait')}</p>
+            </div>
+            <p class="list-amount">${fmtMoney(r.price)}</p>
           </div>
-          <p class="list-amount">${fmtMoney(r.price)}</p>
-        </div>
-      `).join('')}</div>`}
+        `).join('')}</div>
+      `).join('')}
     </div>
     <button class="fab" id="fab-add-rate">${ICONS.plus}</button>
     ${bottomNav('rates')}
@@ -675,6 +726,9 @@ function viewRates(){
 }
 function bindRates(){
   bindTopBar(); bindBottomNav();
+  document.querySelectorAll('[data-rfilter]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ ratesFilter = btn.dataset.rfilter; render(); });
+  });
   document.getElementById('fab-add-rate').addEventListener('click', ()=>navigate('rate-form',{}));
   document.querySelectorAll('[data-rate-id]').forEach(el=>{
     el.addEventListener('click', ()=>navigate('rate-form',{id:el.dataset.rateId}));
@@ -683,6 +737,7 @@ function bindRates(){
 
 function viewRateForm(params){
   const rate = params.id ? getRate(params.id) : null;
+  const cat = rate?.category || 'particuliers';
   return `
     ${topBar(rate?'Modifier tarif':'Nouveau tarif', {back:true})}
     <div class="content">
@@ -690,6 +745,14 @@ function viewRateForm(params){
       <div class="row">
         <div class="field"><label>Prix</label><input type="number" step="0.01" id="rf-price" placeholder="0.00" value="${esc(rate?.price||'')}"></div>
         <div class="field"><label>Unit\u00e9</label><input type="text" id="rf-unit" placeholder="forfait / heure" value="${esc(rate?.unit||'forfait')}"></div>
+      </div>
+      <div class="field">
+        <label>Cat\u00e9gorie</label>
+        <select id="rf-category">
+          <option value="particuliers" ${cat==='particuliers'?'selected':''}>Particuliers</option>
+          <option value="pro" ${cat==='pro'?'selected':''}>Pro & \u00e9tablissements</option>
+          <option value="commun" ${cat==='commun'?'selected':''}>Option commune</option>
+        </select>
       </div>
       <div class="field"><label>Description (optionnel)</label><textarea id="rf-desc" placeholder="D\u00e9tails inclus dans la prestation">${esc(rate?.desc||'')}</textarea></div>
       <button class="btn btn-accent" id="rf-save">Enregistrer</button>
@@ -706,6 +769,7 @@ function bindRateForm(params){
       label,
       price: parseFloat(document.getElementById('rf-price').value)||0,
       unit: document.getElementById('rf-unit').value.trim()||'forfait',
+      category: document.getElementById('rf-category').value,
       desc: document.getElementById('rf-desc').value.trim(),
     };
     if(params.id){
@@ -1000,16 +1064,26 @@ function showClientPicker(onPick){
 function showRatePicker(onPick){
   const overlay = document.createElement('div');
   overlay.className='overlay';
-  const rates = [...DB.rates].sort((a,b)=>a.label.localeCompare(b.label));
+  const rates = [...DB.rates];
+  const groups = {};
+  rates.forEach(r=>{
+    const cat = r.category || 'commun';
+    if(!groups[cat]) groups[cat] = [];
+    groups[cat].push(r);
+  });
+  const order = ['particuliers','pro','commun'];
   overlay.innerHTML = `
     <div class="drawer">
       <div class="drawer-handle"></div>
       <div class="section-title">Choisir un tarif</div>
-      ${rates.length===0 ? `<p style="color:var(--text-dim); font-size:14px;">Aucun tarif enregistr\u00e9. Ajoute-en un depuis l'onglet Tarifs.</p>` : rates.map(r=>`
-        <div class="list-item" data-pick-rate="${r.id}" style="cursor:pointer;">
-          <div class="list-main"><p class="list-title">${esc(r.label)}</p><p class="list-sub">${esc(r.unit)}</p></div>
-          <p class="list-amount">${fmtMoney(r.price)}</p>
-        </div>
+      ${rates.length===0 ? `<p style="color:var(--text-dim); font-size:14px;">Aucun tarif enregistr\u00e9. Ajoute-en un depuis l'onglet Tarifs.</p>` : order.filter(cat=>groups[cat]&&groups[cat].length).map(cat=>`
+        <p style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-faint); margin:14px 0 4px;">${CATEGORY_LABELS[cat]}</p>
+        ${groups[cat].sort((a,b)=>a.label.localeCompare(b.label)).map(r=>`
+          <div class="list-item" data-pick-rate="${r.id}" style="cursor:pointer;">
+            <div class="list-main"><p class="list-title" style="white-space:normal;">${esc(r.label)}</p><p class="list-sub">${esc(r.unit)}</p></div>
+            <p class="list-amount">${fmtMoney(r.price)}</p>
+          </div>
+        `).join('')}
       `).join('')}
       <button class="btn btn-ghost" id="picker-close" style="margin-top:14px;">Fermer</button>
     </div>
