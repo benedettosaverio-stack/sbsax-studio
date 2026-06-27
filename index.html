@@ -91,7 +91,9 @@ label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;lette
 .badge-accepted{background:var(--success-dim);color:var(--success);}
 .badge-paid{background:var(--success-dim);color:var(--success);}
 .badge-pending{background:var(--accent-dim);color:#f0729a;}
+.badge-deposit{background:rgba(240,167,71,0.14);color:#f0a747;}
 .badge-overdue{background:var(--danger-dim);color:var(--danger);}
+.badge-archived{background:rgba(255,255,255,0.06);color:var(--text-dim);margin-left:6px;}
 
 /* Empty state */
 .empty{text-align:center;padding:60px 20px;color:var(--text-faint);}
@@ -504,11 +506,20 @@ function bindOnboard(){
 // HOME
 // ============================================================
 function viewHome(){
-  const docs = DB.documents;
+  const docs = DB.documents.filter(d=>!d.archived);
   const factures = docs.filter(d=>d.type==='facture');
   const devis = docs.filter(d=>d.type==='devis');
-  const caEncaisse = factures.filter(d=>d.status==='paid').reduce((s,d)=>s+docTotal(d),0);
-  const enAttente = factures.filter(d=>d.status!=='paid').reduce((s,d)=>s+docTotal(d),0);
+  const acomptePct = (parseFloat(DB.profile?.acompte)||30) / 100;
+  const caEncaisse = factures.reduce((s,d)=>{
+    if(d.status==='paid') return s + docTotal(d);
+    if(d.status==='deposit_paid') return s + (d.depositAmount!=null ? d.depositAmount : docTotal(d) * acomptePct);
+    return s;
+  }, 0);
+  const enAttente = factures.reduce((s,d)=>{
+    if(d.status==='pending') return s + docTotal(d);
+    if(d.status==='deposit_paid') return s + (docTotal(d) - (d.depositAmount!=null ? d.depositAmount : docTotal(d) * acomptePct));
+    return s;
+  }, 0);
   const recent = [...docs].sort((a,b)=> new Date(b.date) - new Date(a.date)).slice(0,5);
 
   return `
@@ -567,10 +578,11 @@ function statusBadge(doc){
     accepted: {cls:'badge-accepted', label:'Accept\u00e9'},
     declined: {cls:'badge-overdue', label:'Refus\u00e9'},
     pending: {cls:'badge-pending', label:'\u00c0 payer'},
+    deposit_paid: {cls:'badge-deposit', label:'Acompte vers\u00e9'},
     paid: {cls:'badge-paid', label:'Pay\u00e9e'},
   };
   const s = map[doc.status] || map.draft;
-  return `<span class="badge ${s.cls}">${s.label}</span>`;
+  return `<span class="badge ${s.cls}">${s.label}</span>${doc.archived ? `<span class="badge badge-archived">Archiv\u00e9e</span>` : ''}`;
 }
 function docListItem(d){
   const client = getClient(d.clientId);
@@ -796,25 +808,31 @@ function bindRateForm(params){
 // ============================================================
 // DOCUMENTS LIST
 // ============================================================
-let docsFilter = 'all'; // all | devis | facture
+let docsFilter = 'all'; // all | devis | facture | archived
 
 function viewDocuments(){
   let docs = [...DB.documents].sort((a,b)=> new Date(b.date) - new Date(a.date));
-  if(docsFilter==='devis') docs = docs.filter(d=>d.type==='devis');
-  if(docsFilter==='facture') docs = docs.filter(d=>d.type==='facture');
+  if(docsFilter==='archived'){
+    docs = docs.filter(d=>d.archived);
+  } else {
+    docs = docs.filter(d=>!d.archived);
+    if(docsFilter==='devis') docs = docs.filter(d=>d.type==='devis');
+    if(docsFilter==='facture') docs = docs.filter(d=>d.type==='facture');
+  }
 
   return `
     ${topBar('Devis & Factures')}
     <div class="content">
-      <div class="row" style="margin-bottom:16px;">
-        <button class="btn ${docsFilter==='all'?'btn-outline-accent':'btn-ghost'} btn-sm" data-filter="all" style="flex:1;">Tous</button>
-        <button class="btn ${docsFilter==='devis'?'btn-outline-accent':'btn-ghost'} btn-sm" data-filter="devis" style="flex:1;">Devis</button>
-        <button class="btn ${docsFilter==='facture'?'btn-outline-accent':'btn-ghost'} btn-sm" data-filter="facture" style="flex:1;">Factures</button>
+      <div class="row" style="margin-bottom:16px; flex-wrap:wrap;">
+        <button class="btn ${docsFilter==='all'?'btn-outline-accent':'btn-ghost'} btn-sm" data-filter="all" style="flex:1; min-width:70px;">Tous</button>
+        <button class="btn ${docsFilter==='devis'?'btn-outline-accent':'btn-ghost'} btn-sm" data-filter="devis" style="flex:1; min-width:70px;">Devis</button>
+        <button class="btn ${docsFilter==='facture'?'btn-outline-accent':'btn-ghost'} btn-sm" data-filter="facture" style="flex:1; min-width:70px;">Factures</button>
+        <button class="btn ${docsFilter==='archived'?'btn-outline-accent':'btn-ghost'} btn-sm" data-filter="archived" style="flex:1; min-width:70px;">Archiv\u00e9s</button>
       </div>
       ${docs.length===0 ? `
         <div class="empty">
           <div class="emoji">\uD83C\uDFB7</div>
-          <p>Aucun document.<br>Cr\u00e9e ton premier devis ou facture.</p>
+          <p>${docsFilter==='archived' ? 'Aucun document archiv\u00e9.' : 'Aucun document.<br>Cr\u00e9e ton premier devis ou facture.'}</p>
         </div>
       ` : `<div class="card">${docs.map(d=>docListItem(d)).join('')}</div>`}
     </div>
@@ -1110,7 +1128,7 @@ function viewDocDetail(params){
 
   const statusOptions = d.type==='devis'
     ? [['draft','Brouillon'],['sent','Envoy\u00e9'],['accepted','Accept\u00e9'],['declined','Refus\u00e9']]
-    : [['draft','Brouillon'],['sent','Envoy\u00e9'],['pending','\u00c0 payer'],['paid','Pay\u00e9e']];
+    : [['draft','Brouillon'],['sent','Envoy\u00e9'],['pending','\u00c0 payer'],['deposit_paid','Acompte vers\u00e9'],['paid','Pay\u00e9e']];
 
   return `
     ${topBar(d.num, {back:true})}
@@ -1157,10 +1175,21 @@ function viewDocDetail(params){
         `).join('')}
       </div>
 
+      ${d.type==='facture' && d.status==='deposit_paid' ? `
+        <div class="card" style="margin-top:12px;">
+          <p class="list-sub" style="margin-bottom:8px;">Montant de l'acompte r\u00e9ellement encaiss\u00e9</p>
+          <div class="field">
+            <input type="number" id="dd-deposit-amount" placeholder="${(total*((parseFloat(p?.acompte)||30)/100)).toFixed(2)}" value="${d.depositAmount!=null ? d.depositAmount : ''}" step="0.01">
+          </div>
+          <p style="font-size:12px; color:var(--text-dim); margin-top:6px;">Laisse vide pour utiliser le calcul automatique (${p?.acompte||30}% = ${fmtMoney(acompteAmount)}). Reste \u00e0 payer : <strong>${fmtMoney(total - (d.depositAmount!=null ? d.depositAmount : acompteAmount))}</strong></p>
+        </div>
+      ` : ''}
+
       <div style="margin-top:24px; display:flex; flex-direction:column; gap:10px;">
         <button class="btn btn-accent" id="dd-pdf">${ICONS.download} T\u00e9l\u00e9charger le PDF</button>
         <button class="btn" id="dd-edit">${ICONS.edit} Modifier</button>
         ${d.type==='devis' && d.status==='accepted' ? `<button class="btn btn-outline-accent" id="dd-to-facture">Convertir en facture</button>` : ''}
+        <button class="btn btn-ghost" id="dd-archive">${d.archived ? '\u21a9 D\u00e9sarchiver' : '\ud83d\udce6 Archiver'}</button>
         <button class="btn btn-danger" id="dd-delete">${ICONS.trash} Supprimer</button>
       </div>
     </div>
@@ -1180,6 +1209,14 @@ function bindDocDetail(params){
     });
   });
 
+  const depositInput = document.getElementById('dd-deposit-amount');
+  if(depositInput) depositInput.addEventListener('change', ()=>{
+    const val = depositInput.value.trim();
+    d.depositAmount = val === '' ? null : parseFloat(val);
+    saveDB();
+    render();
+  });
+
   document.getElementById('dd-pdf').addEventListener('click', ()=>{
     generatePDF(d);
   });
@@ -1187,6 +1224,14 @@ function bindDocDetail(params){
   document.getElementById('dd-edit').addEventListener('click', ()=>{
     docFormState = null;
     navigate('doc-form', {id:d.id, type:d.type});
+  });
+
+  const archiveBtn = document.getElementById('dd-archive');
+  if(archiveBtn) archiveBtn.addEventListener('click', ()=>{
+    d.archived = !d.archived;
+    saveDB();
+    toast(d.archived ? 'Document archiv\u00e9' : 'Document d\u00e9sarchiv\u00e9');
+    render();
   });
 
   const toFacture = document.getElementById('dd-to-facture');
